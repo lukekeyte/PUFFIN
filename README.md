@@ -48,11 +48,10 @@ puffin/
 
 For fast radial density profiles:
 ```python
-import numpy as np
 import puffin
 
 # Basic usage with default parameters
-r_array, rho = puffin.puffin_1d(
+r_array, rho = puffin.DiskModel1D(
     m_star=0.5,      # stellar mass (M_sun)
     r_d=100,         # characteristic radius (AU)
     sigma_1au=100,   # surface density at 1 AU (g/cm^2)
@@ -60,7 +59,7 @@ r_array, rho = puffin.puffin_1d(
 )
 
 # Custom grid and parameters
-r_array, rho = puffin.puffin_1d(
+r_array, rho = puffin.DiskModel1D(
     m_star=0.5,
     r_d=100,
     sigma_1au=100,
