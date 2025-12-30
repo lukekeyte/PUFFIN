@@ -2,8 +2,9 @@
 
 `PUFFIN` is a parametric model for computing gas density structures in externally FUV-irradiated protoplanetary disks. It provides both 1D radial and 2D cylindrical models of photoevaporating disks, designed to be fast and accessible for applications in disk chemistry.
 
-**Note on this release:** This is the initial working version (v1.0) of PUFFIN. The physics implementation and model outputs are complete and validated. A refactored version with improved code structure (class-based design, enhanced documentation, and additional output options) is planned for release in January 2026. The current version is fully functional for research applications.
-
+> [!IMPORTANT]
+> **Note on this release:** This is the initial working version (v1.0) of PUFFIN. The physics implementation and model outputs are complete and validated. A refactored version with improved code structure (class-based design, enhanced documentation, and additional output options) is planned for release in January 2026. The current version is fully functional for research applications.
+If your site uses pure GitHub rendering, this will appear as a highlighted callout box with emphasis.
 
 ## Features
 
@@ -18,8 +19,7 @@
 
 `PUFFIN` is a standalone Python script. Simply clone or download the repository:
 ```bash
-git clone https://github.com/yourusername/puffin.git
-cd puffin
+git clone https://github.com/lukekeyte/puffin.git
 ```
 
 Ensure you have the required dependencies installed:
