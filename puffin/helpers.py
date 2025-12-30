@@ -1,4 +1,35 @@
-# This module deals with input/output for the parametric disk + wind model
+"""
+Helper Functions for Protoplanetary Disk Modeling
+=================================================
+
+Utility module providing I/O, stellar properties, visualization, and 
+interpolation functions for parametric disk + wind models (puffin.py).
+
+Function Categories
+-------------------
+**Input/Output**
+  GetInputParameters, dump1Dmodel, readFriedRadial, readFriedMdot
+
+**Visualization**  
+  plot_all, plot_density
+
+**Stellar Properties (Eker et al. 2018)**
+  eker_mlr, get_stellar_properties, fuv_fraction, planck_wavelength
+  Empirical MLR/MRR/MTR relations for 0.179-31 Msun
+
+**Math Utilities**
+  smooth_temperature_profile, smooth_cosine, convert_to_zero
+
+**Physical Calculations**
+  calculate_disk_mass, interpolate_mdot
+  
+FRIED Grid Interpolation
+-------------------------
+interpolate_mdot queries 4D lookup table (Haworth et al. 2018) with ranges:
+  M_star: 0.3-3.0 Msun | R_d: 10-150 AU | Sigma: 10-10000 g/cm2 | FUV: 100-100000 G0
+
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import quad

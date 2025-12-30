@@ -3,8 +3,7 @@
 `PUFFIN` is a parametric model for computing gas density structures in externally FUV-irradiated protoplanetary disks. It provides both 1D radial and 2D cylindrical models of photoevaporating disks, designed to be fast and accessible for applications in disk chemistry.
 
 > [!IMPORTANT]
-> **Note on this release:** This is the initial working version (v1.0) of PUFFIN. The physics implementation and model outputs are complete and validated. A refactored version with improved code structure (class-based design, enhanced documentation, and additional output options) is planned for release in January 2026. The current version is fully functional for research applications.
-If your site uses pure GitHub rendering, this will appear as a highlighted callout box with emphasis.
+> **Note on this release:** This is the initial working version (v1.0) of `PUFFIN`. The physics implementation and model outputs are complete and validated. A refactored version with improved code structure (class-based design, enhanced documentation, and additional output options) is planned for release in January 2026. The current version is fully functional for research applications.
 
 ## Features
 
@@ -40,7 +39,6 @@ puffin/
 - numpy
 - scipy
 - matplotlib
-- scipy.spatial (cKDTree for bowl region calculations)
 
 ## Quick Start
 
@@ -98,39 +96,10 @@ r_array, z_array, rho_total = puffin.DiskModel2D(
 )
 ```
 
-## Model Components
-
-### 1D Model
-
-The 1D model includes three density components:
-- **Disk**: Power-law surface density with exponential cutoff, vertical Gaussian structure
-- **Spherical wind**: Outflow with ρ ∝ 1/r² from mass-loss rate
-- **Plateau transition**: Smooth blending between disk and wind
-
-Final density is the maximum of all components at each radius.
-
-### 2D Model
-
-The 2D model solves for vertical structure iteratively:
-- **Disk**: Hydrostatic equilibrium with temperature-dependent scale height
-- **Temperature structure**: Smooth transition from midplane to PDR temperature at τ=1 surface
-- **Optical depth**: Calculated in vertical and radial directions to determine disk surface
-- **Spherical wind**: Launched from τ=1 surface with focal point geometry
-- **Bowl region**: Smooth transition from disk to wind, tapered inside r_d
-- **Wind tapering**: Cosine smoothing at disk edges
-
-
-## Notes
-
-- **1D model**: Recommended for fast calculations, parameter surveys, and when vertical structure is not required
-- **2D model**: Use for detailed studies requiring proper vertical structure and column densities
-- **Resolution**: 2D models require n_points ≥ 1000 for accurate HSE solutions
-- **Mass loss**: Can override automatic FRIED interpolation by providing m_dot parameter
-- **Failed models**: 2D model returns error strings for optically thin disks or insufficient mass
 
 ## Citation
 
-If you use PUFFIN in your research, please cite:
+If you use `PUFFIN` in your research, please cite:
 
 Keyte & Haworth (submitted) - 'A parametric model for externally irradiated protoplanetary disks with photoevaporative winds'
 

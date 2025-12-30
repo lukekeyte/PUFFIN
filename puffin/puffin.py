@@ -1,3 +1,62 @@
+"""
+PUFFIN: Python Utility For FUV Irradiated disk deNsities
+========================================================
+A parametric model for calculating the density structure of externally 
+FUV-irradiated protoplanetary disks undergoing photoevaporation.
+
+This module provides functions to compute 1D and 2D gas density profiles for 
+protoplanetary disks subject to external far-ultraviolet (FUV) radiation fields.
+
+Main Functions
+--------------
+DiskModel1D : 
+    Compute 1D midplane density structure
+DiskModel2D : 
+    Compute 2D (r,z) density structure with vertical hydrostatic equilibrium
+
+Physical Model
+--------------
+The density structure consists of three components:
+  1. Disk: Hydrostatic disk with power-law surface density Sigma proportional to r^(-1) and 
+     exponential outer truncation at the gravitational radius r_d
+  2. Wind: Spherical photoevaporative outflow (rho proportional to r^(-2)) launched from 
+     the tau=1 FUV surface, with density set by mass loss rate
+  3. Transition: Smooth exponential taper and 'plateau' region blending disk to wind
+
+The 2D model iteratively solves for vertical hydrostatic equilibrium with 
+temperature-dependent scale heights, accounting for FUV heating in the 
+photodissociation region (PDR).
+
+Dependencies
+------------
+numpy : Array operations and mathematical functions
+scipy.spatial.cKDTree : Nearest-neighbor searches for wind geometry
+scipy.interpolate.griddata : Spatial interpolation
+helpers : Custom utilities for I/O, stellar properties, and interpolation
+
+Mass Loss Rates
+---------------
+If not explicitly provided, mass loss rates are interpolated from the FRIED 
+grid (Haworth et al. 2018) using the helpers.interpolate_mdot function, which 
+queries a pre-computed lookup table spanning:
+  - Stellar mass: 0.3 - 3.0 Msun
+  - Disk radius: 10 - 150 AU
+  - Surface density: 10 - 10^4 g/cm^2
+  - FUV field: 100 - 10^5 G0
+
+References
+----------
+If using this code, please cite:
+  - Haworth et al. (2018, 2023) - FRIED grid mass loss rates
+  - Keyte & Haworth (submitted)
+
+Author: Luke Keyte
+Institution: Queen Mary University of London, Astronomy Unit
+Contact: l.keyte@qmul.ac.uk
+Version: 1.00
+Last Updated: December 2025
+"""
+
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.interpolate import griddata
