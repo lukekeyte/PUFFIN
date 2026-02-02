@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "puffin_disk"
+dynamic = ["version"]
+description = "Parametric model for externally FUV-irradiated protoplanetary disk density structures"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+authors = [
+    {name = "Luke Keyte", email = "l.keyte@qmul.ac.uk"}
+]
+
+keywords = [
+    "astronomy",
+    "astrophysics",
+    "protoplanetary disks",
+    "photoevaporation",
+    "astrochemistry",
+    "disk modeling"
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "numpy>=1.20.0",      
+    "scipy>=1.7.0",       
+    "matplotlib>=3.3.0",  
+]
+
+
+[project.urls]
+Documentation = "https://puffin.readthedocs.io"
+Repository = "https://github.com/lukekeyte/PUFFIN"
+"Bug Tracker" = "https://github.com/lukekeyte/PUFFIN/issues"
+
+
+[tool.setuptools]
+packages = ["puffin_disk"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "puffin_disk.__version__"}
+
+
+[tool.setuptools.package-data]
+puffin_disk = [
+    "data/*.dat",  # Include all .dat files in the data/ subdirectory
+]
+
+
+# [project.optional-dependencies]
+# dev = [
+#     "pytest>=7.0",           # Testing framework
+#     "pytest-cov>=3.0",       # Test coverage reporting
+#     "black>=22.0",           # Code formatter
+#     "flake8>=4.0",           # Code linter
+#     "sphinx>=4.0",           # Documentation generator
+#     "sphinx-rtd-theme>=1.0", # ReadTheDocs theme for documentation
+# ]
