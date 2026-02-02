@@ -22,13 +22,6 @@ pip install puffin_disk
 
 This will automatically install all required dependencies (numpy, scipy, matplotlib).
 
-### Development Installation
-
-To install the latest development version from GitHub:
-
-```bash
-pip install git+https://github.com/lukekeyte/PUFFIN.git
-```
 
 ### Requirements
 
@@ -95,9 +88,6 @@ r_array, z_array, rho_total = puffin_disk.DiskModel2D(
     p=0.2,
     q=0.4
 )
-
-# Visualize the result
-puffin_disk.plot_density(rho_total, r_array, z_array)
 ```
 
 
@@ -105,15 +95,6 @@ puffin_disk.plot_density(rho_total, r_array, z_array)
 
 Full documentation including detailed API reference, tutorials, and examples is available at [puffin.readthedocs.io](https://puffin.readthedocs.io).
 
-## Physical Model
-
-The density structure consists of three components:
-
-1. **Disk**: Hydrostatic disk with power-law surface density (Σ ∝ r⁻¹) and exponential outer truncation at the gravitational radius r_d
-2. **Wind**: Spherical photoevaporative outflow (ρ ∝ r⁻²) launched from the τ=1 FUV surface, with density set by mass loss rate
-3. **Transition**: Smooth exponential taper and plateau region blending disk to wind
-
-The 2D model iteratively solves for vertical hydrostatic equilibrium with temperature-dependent scale heights, accounting for FUV heating in the photodissociation region (PDR).
 
 ## Citation
 
@@ -121,7 +102,7 @@ If you use `PUFFIN` in your research, please cite:
 
 **Keyte & Haworth (2026)** - *A parametric model for externally irradiated protoplanetary disks with photoevaporative winds*
 
-The FRIED grid mass loss rates are from:
+The `FRIED` grid mass loss rates are from:
 
 **Haworth et al. (2018)** - *The FRIED grid of mass-loss rates for externally irradiated
 protoplanetary discs* - MNRAS, 481, 452  
