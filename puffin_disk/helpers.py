@@ -1,32 +1,59 @@
 """
-Helper Functions for Protoplanetary Disk Modeling
-=================================================
+PUFFIN Helper Functions
+========================
+Supporting utilities for the PUFFIN (Python Utility For FUV Irradiated disk 
+deNsities) parametric disk modeling framework.
 
-Utility module providing I/O, stellar properties, visualization, and 
-interpolation functions for parametric disk + wind models (puffin.py).
+This module provides essential computational and I/O utilities for modeling
+externally FUV-irradiated protoplanetary disks, including stellar property
+calculations, temperature profiles, mass-loss rate interpolation, and formatted
+console output.
 
-Function Categories
--------------------
-**Input/Output**
-  GetInputParameters, dump1Dmodel, readFriedRadial, readFriedMdot
+Module Contents
+---------------
+Temperature Profiles:
+    smooth_temperature_profile : Create smooth vertical temperature transitions
 
-**Visualization**  
-  plot_all, plot_density
+Stellar Properties (Eker et al. 2018 empirical relations):
+    eker_mlr : Six-piece mass-luminosity relation
+    get_stellar_properties : Compute luminosity, radius, and effective temperature
+    planck_wavelength : Planck function in wavelength form
+    fuv_fraction : Calculate FUV (912-2000 Å) luminosity fraction
 
-**Stellar Properties (Eker et al. 2018)**
-  eker_mlr, get_stellar_properties, fuv_fraction, planck_wavelength
-  Empirical MLR/MRR/MTR relations for 0.179-31 Msun
+Disk Properties:
+    calculate_disk_mass : Integrate total disk mass from surface density profile
 
-**Math Utilities**
-  smooth_temperature_profile, smooth_cosine, convert_to_zero
+Mass-Loss Rate Interpolation:
+    interpolate_mdot : Query FRIED grid lookup table for photoevaporation rates
 
-**Physical Calculations**
-  calculate_disk_mass, interpolate_mdot
-  
-FRIED Grid Interpolation
--------------------------
-interpolate_mdot queries 4D lookup table (Haworth et al. 2018) with ranges:
-  M_star: 0.3-3.0 Msun | R_d: 10-150 AU | Sigma: 10-10000 g/cm2 | FUV: 100-100000 G0
+Mathematical Utilities:
+    smooth_cosine : Adjustable cosine taper function for smooth transitions
+
+Console Output:
+    print_initialisation_1D/2D : Formatted model initialization displays
+    log_section/table_* : Structured table output with Unicode formatting
+    format_scientific : Format numbers with superscript exponents
+
+Dependencies
+------------
+numpy : Array operations and mathematical functions
+scipy.integrate : Numerical integration (Planck function, disk mass)
+scipy.interpolate : N-dimensional interpolation for mass-loss rates
+scipy.constants : Physical constants (h, c, k)
+matplotlib.pyplot : Plotting utilities (imported but not actively used here)
+pathlib : Cross-platform file path handling
+platform : Operating system detection for Unicode box-drawing
+
+Data Files
+----------
+FRIEDV2_ALL_fPAH1p0_growth.dat : Pre-computed mass-loss rate lookup table
+    from the FRIED photoevaporation grid (Haworth et al. 2018, 2023)
+
+References
+----------
+Keyte & Haworth (2026) : PUFFIN overview paper
+Eker et al. (2018) : Empirical mass-luminosity, mass-radius, and mass-temperature relations
+Haworth et al. (2018, 2023) : FRIED photoevaporation grid
 
 """
 
@@ -36,140 +63,12 @@ from scipy.integrate import quad
 from scipy.constants import h, c, k
 from scipy.interpolate import LinearNDInterpolator
 from pathlib import Path
+import platform
 
+#######################
+# TEMPERATURE PROFILE #
+#######################
 
-# Read input file and set up parameters
-def GetInputParameters():
-    paramFile = "inputparams.dat"
-    parameters = np.genfromtxt(paramFile, delimiter=",")
-    Mstar=parameters[0,1]
-    Rd=parameters[1,1]
-    Sigma1au=parameters[2,1]
-    T1au=parameters[3,1]
-    FUVG0=parameters[4,1]
-    nR=parameters[5,1]
-    Rout=parameters[6,1]
-    print("=========================")
-    print("Input parameters:")
-    print("=========================")
-    print("M_star      :", Mstar, "M_sun")
-    print("R_d         :", Rd ,"au")
-    print("R_out       :", Rout ,"au")
-    print("Sigma_1au   :", Sigma1au , "g/cm^2")
-    print("T_1au       :", T1au, "K")
-    print("Ambient FUV :", FUVG0, "G0")
-    print("n_cells (r) :", int(nR))
-    print("=========================")
-    print(" ")
-    return Mstar, Rd, Sigma1au, T1au, FUVG0, nR, Rout
-
-
-# Save results of 1D model to file 
-def dump1Dmodel(filename, R, rho, T, vR, vPhi, sigmaFUV, dustToGas):
-    np.savetxt(filename, np.c_[R, rho, T, vR, vPhi, sigmaFUV, dustToGas], delimiter=",", fmt='%f %e %f %f %f %f %f')
-
-
-# Read FRIED 'radial' file
-def readFriedRadial(filename):
-    param_list = filename.split('_')
-    m_star     = float(param_list[0].replace('Msol', '').replace('p', '.'))
-    g0         = float(param_list[1].replace('G0', ''))
-    sigma      = float(param_list[2].replace('Sigma', ''))
-    rd         = float(param_list[3].replace('au', ''))
-    return m_star, g0, sigma, rd
-
-
-# Extract FRIED log_mdot
-def readFriedMdot(filename, Mstar, Rd, Sigma1au, FUVG0): 
-    with open(filename, 'r') as file:
-        for line in file:
-            current_line = line.split()
-
-            if float(current_line[0].replace(',', '')) == Mstar:
-                if float(current_line[1].replace(',', '')) == Rd:
-                    if float(current_line[2].replace(',', '')) == Sigma1au:
-                            if float(current_line[4].replace(',', '')) == FUVG0:
-                                log_mdot = float(current_line[-1])
-    return log_mdot
-
-
-# Convert error values to 0
-def convert_to_zero(x):
-    try:
-        return float(x)
-    except ValueError:
-        return 0
-    
-    
-# Plot results
-def plot_all(figname, xlim, ylim, r_array, z_array, rho_disk, rho_wind, rho, tau_FUV, FUV_field_attenuated, T, tau_surface, savefig=False):
-    
-    fig, ax = plt.subplots(2,3, figsize=(14,6.75))
-    ax = ax.flatten()
-    
-    cmap = 'Spectral_r'
-    
-    levels_rho = np.arange(-25, -11, 0.2)
-    
-    rho_disk_plot = ax[0].contourf(r_array, z_array, np.log10(rho_disk), cmap=cmap, levels=levels_rho, extend='both')
-    cbar_rho_disk = fig.colorbar(rho_disk_plot, ax=ax[0], orientation='vertical')
-    ax[0].set_title('$\\rho_\mathrm{disk}$', fontsize=14)
-    
-    rho_wind_plot = ax[1].contourf(r_array, z_array, np.log10(rho_wind), cmap=cmap, levels=levels_rho, extend='both')
-    cbar_rho_wind = fig.colorbar(rho_wind_plot, ax=ax[1], orientation='vertical')
-    ax[1].set_title('$\\rho_\mathrm{wind}$', fontsize=14)
-    
-    rho_plot = ax[2].contourf(r_array, z_array, np.log10(rho), cmap=cmap, levels=levels_rho, extend='both')
-    cbar_rho = fig.colorbar(rho_plot, ax=ax[2], orientation='vertical')
-    ax[2].set_title('$\\rho$', fontsize=14)
-    
-    tau_plot = ax[3].contourf(r_array, z_array, np.log10(tau_FUV), cmap=cmap, levels=np.arange(-2, 4.1, 0.1), extend='both')
-    cbar_tau = fig.colorbar(tau_plot, ax=ax[3], orientation='vertical')
-    ax[3].set_title('$\\tau_\mathrm{FUV}$', fontsize=14)
-
-    tau1_contour = ax[3].contour(r_array, z_array, tau_FUV, levels=[tau_surface*3.02], colors='red', linewidths=1.5, linestyles=':')
-        
-    fuv_plot = ax[4].contourf(r_array, z_array, np.log10(FUV_field_attenuated), cmap=cmap, levels=np.arange(0.1, 2, 0.01), extend='both')
-    cbar_fuv = fig.colorbar(fuv_plot, ax=ax[4], orientation='vertical')
-    ax[4].set_title('FUV', fontsize=14)
-    
-    fuv1_contour = ax[4].contour(r_array, z_array, tau_FUV, levels=[1.0], colors='white', linewidths=1.5, linestyles=':')
-    
-    T_plot = ax[5].contourf(r_array, z_array, T, cmap=cmap, levels=np.logspace(0,np.log10(40),25), extend='both')
-    cbar_T = fig.colorbar(T_plot, ax=ax[5], orientation='vertical')
-    ax[5].set_title('T$_\mathrm{gas}$', fontsize=14)
-    
-    for i in range(0,6):
-        ax[i].set_xlim(0, xlim)
-        ax[i].set_ylim(0, ylim)
-        
-    plt.tight_layout()
-    if savefig == True:
-        plt.savefig(f'/Users/luke/Documents/QMUL/{figname}.png', dpi=150)
-        
-        
-        
-def plot_density(figname, anno, r_array, z_array, rho_disk, xlim, ylim, savefig=True):
-
-    cmap = 'Spectral_r'
-        
-    levels_rho = np.arange(-20, -11, 0.2)
-
-    plt.contourf(r_array, z_array, np.log10(rho_disk), cmap=cmap, levels=levels_rho, extend='both')
-    plt.colorbar()
-
-    plt.annotate(f'Iteration {anno}', (500, 600), c='white', fontsize=14)
-
-    plt.xlim(0, 700)
-    plt.ylim(0, 700)
-
-    plt.tight_layout()
-    
-    if savefig == True:
-        plt.savefig(f'/Users/luke/Documents/QMUL/{figname}.png', dpi=150)
-    plt.show()
-    
-    
 def smooth_temperature_profile(z_norm, T_midplane, T_surface, profile_type="tanh", k=2):
     """
     Create a smooth temperature profile from midplane to surface.
@@ -179,17 +78,17 @@ def smooth_temperature_profile(z_norm, T_midplane, T_surface, profile_type="tanh
     T_midplane: temperature at the midplane
     T_surface: temperature at the tau surface (TPDR)
     profile_type: type of smooth function to use
+    
+    Currently only the 'tanh' option has been validated.
     """
     
     if profile_type == "tanh":
         # Hyperbolic tangent provides very smooth transition
-        # The factor 2 controls the steepness - larger values make it more linear
+        # The factor k controls the steepness - larger values make it more linear
         smooth_factor = 0.5 * (1 + np.tanh(k * (z_norm - 0.5)))
         return T_midplane + (T_surface - T_midplane) * smooth_factor
     
     elif profile_type == "exponential":
-        # Exponential approach to surface temperature
-        # This mimics physical heating that becomes more efficient at lower optical depths
         if z_norm == 0:
             return T_midplane
         else:
@@ -198,14 +97,10 @@ def smooth_temperature_profile(z_norm, T_midplane, T_surface, profile_type="tanh
             return T_midplane + (T_surface - T_midplane) * smooth_factor
     
     elif profile_type == "cubic":
-        # Cubic polynomial with zero derivatives at endpoints
-        # This ensures smooth connection to constant regions above/below
         smooth_factor = 3 * z_norm**2 - 2 * z_norm**3
         return T_midplane + (T_surface - T_midplane) * smooth_factor
     
     elif profile_type == "linear":
-        # Linear interpolation (your original approach)
-        # Simple straight-line transition from midplane to surface
         return T_midplane + (T_surface - T_midplane) * z_norm
     
     else:  # default to linear if unknown type specified
@@ -213,12 +108,10 @@ def smooth_temperature_profile(z_norm, T_midplane, T_surface, profile_type="tanh
     
     
 
-
-####################################################
-# DETERMINE FRACTION OF TOTAL LUMINOSITY IN FUV    #
-# - Uses MLR, MRR, and MTR from Eker et al. (2018) #
-####################################################
-
+##################################################
+# STELLAR FUV CALCULATION FUNCTIONS              #
+# Uses MLR, MRR, and MTR from Eker et al. (2018) #
+##################################################
 
 # Mass-luminosity
 def eker_mlr(mass):
@@ -356,6 +249,10 @@ def fuv_fraction(T_eff):
     return fuv_integral / total_integral
 
 
+#######################
+# CALCULATE DISK MASS #
+#######################
+
 def calculate_disk_mass(sigma_1au, r_min=0.001, r_max=100.0, n_points=1000):
     """
     Calculate total disk mass for protoplanetary disk with power-law surface density.
@@ -391,6 +288,11 @@ def calculate_disk_mass(sigma_1au, r_min=0.001, r_max=100.0, n_points=1000):
     
     return total_mass_solar
 
+
+#################################
+# INTERPOLATE MASS-LOSS RATE    #
+# Uses data from the FRIED grid #
+#################################
 
 def interpolate_mdot(m_star, r_d, sigma_1au, F_FUV):
     """
@@ -449,6 +351,11 @@ def interpolate_mdot(m_star, r_d, sigma_1au, F_FUV):
     
     return result
 
+
+################
+# COSINE TAPER #
+################
+
 def smooth_cosine(x, x1, steepness):
     # Handle edge case: if x1=0, return 1.0 (no tapering)
     if x1 == 0:
@@ -458,3 +365,189 @@ def smooth_cosine(x, x1, steepness):
     # Apply adjustable exponent to control curve shape
     t = (x / x1) ** steepness
     return (1 - np.cos(np.pi * t)) / 2
+
+
+############################
+# CONSOLE OUTPUT FUNCTIONS #
+############################
+
+# Safe message formatting for Windows/Mac
+def safe_logger(message):
+    """
+    Safe logging with ASCII replacements on Windows.
+    """
+    if platform.system() == 'Windows':
+        replacements = {
+            '▓': '#', '►': '>', '│':'|',
+            '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5',
+            '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁰': '0',
+            '⁻': '-', '×': 'x', '•': '-'
+        }
+
+        for unicode_char, ascii_char in replacements.items():
+            message = message.replace(unicode_char, ascii_char)
+        
+        # Handle any remaining Unicode
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
+    else:
+        print(message)
+
+# 1D code header
+def print_initialisation_1D(m_star, r_d, sigma_1au, FFUV_G0, n_points, gridsize, m_dot, gamma, p, q):
+    if platform.system() == 'Windows':
+        print("|" + ("-" * 68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + "PUFFIN".center(68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + "Python Utility For Fuv Irradiated disk deNsities".center(68) + "|")
+        print("|" + "by Luke Keyte".center(68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + "Version 1.0.0 | 2026".center(68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + ("-" * 68) + "|")
+        print("\n")
+    else:
+        print("┏" + ("━" * 68) + "┓")
+        print("┃" + "".center(68) + "┃")
+        print("┃" + "      ▗▀▖▗▀▖▗    ".center(68) + "┃")
+        print("┃" + "▛▀▖▌ ▌▐  ▐  ▄ ▛▀▖".center(68) + "┃")
+        print("┃" + "▙▄▘▌ ▌▜▀ ▜▀ ▐ ▌ ▌".center(68) + "┃")
+        print("┃" + "▌  ▝▀▘▐  ▐  ▀▘▘ ▘".center(68) + "┃")
+        print("┃" + "".center(68) + "┃")
+        print("┃" + "Python Utility For Fuv Irradiated disk deNsities".center(68) + "┃")
+        print("┃" + "by Luke Keyte".center(68) + "┃")
+        print("┃" + "".center(68) + "┃")
+        print("┃" + "Version 1.0.0 | 2026".center(68) + "┃")
+        print("┃" + "".center(68) + "┃")
+        print("┗" + ("━" * 68) + "┛")
+        print("\n")
+    # Print model properties
+    log_section('INITIALIZATION')
+    log_table_header(' > Model initialized')
+    log_table_row("Stellar mass", m_star, 'M_sun')
+    log_table_row("Disk radius", r_d, 'AU')
+    log_table_row("Sigma (1AU)", sigma_1au, 'g cm^-2')
+    log_table_row("FUV field", FFUV_G0, 'G0')
+    log_table_row("N grid cells", n_points)
+    log_table_row("Grid size", gridsize, 'AU')
+    log_table_row("Mass-loss rate", m_dot, 'M_sun/yr')
+    log_table_row("Gamma", gamma)
+    log_table_row("p", p)
+    log_table_row("q", q)
+    log_table_footer()
+    
+# 2D code header
+def print_initialisation_2D(m_star, r_d, sigma_1au, FFUV_G0, n_points, gridsize, m_dot, gamma, p, q, k):
+    if platform.system() == 'Windows':
+        print("|" + ("-" * 68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + "PUFFIN".center(68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + "Python Utility For Fuv Irradiated disk deNsities".center(68) + "|")
+        print("|" + "by Luke Keyte".center(68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + "Version 1.0.0 | 2026".center(68) + "|")
+        print("|" + "".center(68) + "|")
+        print("|" + ("-" * 68) + "|")
+        print("\n")
+    else:
+        print("┏" + ("━" * 68) + "┓")
+        print("┃" + "".center(68) + "┃")
+        print("┃" + "      ▗▀▖▗▀▖▗    ".center(68) + "┃")
+        print("┃" + "▛▀▖▌ ▌▐  ▐  ▄ ▛▀▖".center(68) + "┃")
+        print("┃" + "▙▄▘▌ ▌▜▀ ▜▀ ▐ ▌ ▌".center(68) + "┃")
+        print("┃" + "▌  ▝▀▘▐  ▐  ▀▘▘ ▘".center(68) + "┃")
+        print("┃" + "".center(68) + "┃")
+        print("┃" + "Python Utility For Fuv Irradiated disk deNsities".center(68) + "┃")
+        print("┃" + "by Luke Keyte".center(68) + "┃")
+        print("┃" + "".center(68) + "┃")
+        print("┃" + "Version 1.0.0 | 2026".center(68) + "┃")
+        print("┃" + "".center(68) + "┃")
+        print("┗" + ("━" * 68) + "┛")
+        print("\n")
+    # Print model properties
+    log_section('INITIALIZATION')
+    log_table_header(' > Model initialized')
+    log_table_row("Stellar mass", m_star, 'M_sun')
+    log_table_row("Disk radius", r_d, 'AU')
+    log_table_row("Sigma (1AU)", sigma_1au, 'g cm^-2')
+    log_table_row("FUV field", FFUV_G0, 'G0')
+    log_table_row("N grid cells", n_points)
+    log_table_row("Grid size", gridsize, 'AU')
+    log_table_row("Mass-loss rate", m_dot, 'M_sun/yr')
+    log_table_row("Gamma", gamma)
+    log_table_row("p", p)
+    log_table_row("q", q)
+    log_table_row("k", k)
+    log_table_footer()
+
+def log_section(title):
+    safe_logger("▓" * 24 + title.upper().center(22) + "▓" * 24 +"\n")
+    
+def log_table_header(title):
+    """Log a table section header."""
+    safe_logger(f" {title}")
+    print(" ┌────────────────────┬───────────────┬──────────┐")
+    print(" │ Parameter          │ Value         │ Unit     │")
+    print(" ├────────────────────┼───────────────┼──────────┤")
+    
+def log_table_row(parameter, value, unit=""):
+    """Format and log a parameter as a table row."""
+    formatted_value = format_scientific(value) if isinstance(value, float) else value
+    # Handle boolean values
+    if isinstance(value, bool):
+        formatted_value = str(value)
+    
+    if unit:
+        # Convert standard units to proper Unicode
+        unit = (unit.replace("^-1", "⁻¹")
+                   .replace("^-2", "⁻²")
+                   .replace("^-3", "⁻³")
+                   .replace("^2", "²")
+                   .replace("^3", "³"))
+        safe_logger(f" │ {parameter:<18} │ {formatted_value:<13} │ {unit:<8} │")
+    else:
+        safe_logger(f" │ {parameter:<18} │ {formatted_value:<13} │          │")
+
+def log_table_footer():
+    """Log the table footer."""
+    print(" └────────────────────┴───────────────┴──────────┘\n")
+    
+def format_scientific(number):
+    """Format a number in scientific notation with proper symbols."""
+    # For small numbers close to zero, just return the formatted number
+    if abs(number) < 0.1 and abs(number) > 0.0001:
+        return f"{number:.4f}"
+    
+    # For numbers that don't need scientific notation
+    if abs(number) >= 0.1 and abs(number) < 1000:
+        # Format with appropriate decimal places
+        if abs(number) >= 100:
+            return f"{number:.1f}"
+        elif abs(number) >= 10:
+            return f"{number:.2f}"
+        else:
+            return f"{number:.3f}"
+    
+    # Convert to scientific notation
+    sci_notation = f"{number:.2e}"
+    parts = sci_notation.split('e')
+    mantissa = float(parts[0])
+    exponent = int(parts[1])
+    
+    # Format exponent with superscripts
+    exponent_map = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', 
+                    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', 
+                    '-': '⁻', '+': ''}
+    exponent_str = ''.join(exponent_map[char] for char in str(exponent))
+    
+    # Return formatted string
+    if platform.system() == 'Windows':
+        return f"{mantissa:.2f}e{exponent_str}"
+    else:
+        return f"{mantissa:.2f} × 10{exponent_str}"
+
+
+
+        
